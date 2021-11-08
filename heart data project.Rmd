@@ -1,0 +1,198 @@
+---
+title: "heart project"
+author: "AMAL THOMAS"
+date: "05/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+```
+
+```{r}
+heart_data <- read.csv("D:/SEM III/Predictive analytics/heart - heart.csv")
+heart_data$output <- as.factor(heart_data$output)
+
+attach(heart_data)
+summary(heart_data)
+View(heart_data)
+
+```
+
+
+```{r}
+boxplot(heart_data)
+IQR(heart_data$trtbps)
+upperfence_trtbps <- 140+1.5*IQR(heart_data$trtbps)
+upperfence_trtbps
+
+upperfence_chol <- 274+1.5*IQR(heart_data$chol)
+upperfence_chol
+
+
+1.5*IQR(heart_data$chol)
+
+boxplot(heart_data$fbs)
+upperfence_fbs <- 0+1.5*IQR(heart_data$fbs)
+upperfence_fbs
+sum(heart_data$fbs < 0-1.5*IQR(heart_data$fbs))
+
+boxplot(heart_data$thalachh)
+lowerfence_thalachh <- 133-1.5*IQR(heart_data$thalachh)
+lowerfence_thalachh
+
+boxplot(heart_data$oldpeak)
+
+upperfence_oldpeak <- 1.6+1.5*IQR(heart_data$oldpeak)
+upperfence_oldpeak
+sum(heart_data$oldpeak > 1.6+1.5*IQR(heart_data$oldpeak))
+boxplot(heart_data$caa)
+
+heart_data_clean <- subset(heart_data,age<=77 & sex<=1 & cp<=3 & trtbps<=170 & chol<=369.25 & fbs<=1 & restecg<=2
+                           & thalachh >=84.25 & exng <=1 & oldpeak<=4 & slp<=2 & caa<=4 & thall<=3)
+
+
+
+heart_data_clean
+boxplot(heart_data_clean)
+summary(heart_data_clean)
+```
+
+```{r}
+## EDA Process
+install.packages("tidyverse")
+install.packages("ggplot2")
+install.packages("Hmisc")
+
+
+library(tidyverse)
+library(ggplot2)
+library(Hmisc)
+library(funModeling)
+
+glimpse(heart_data_clean)
+plot_num(heart_data_clean)
+hist(age)
+hist(heart_data_clean$trtbps)
+
+##Analyzing numerical variables
+
+##age vs cholestrol
+ggplot(heart_data_clean,aes(x=age,y=chol))+geom_point(aes(col=age,size=output))+
+labs(title = "age vs cholesterol")
+
+
+##age vs blood pressure
+ggplot(heart_data_clean,aes(x=chol,y=trtbps))+geom_point(aes(col=output))+labs(title = "age vs blood pressure")
+
+##Age vs maximum heart rate achieved(age vs thalachh)
+ggplot(heart_data_clean,aes(x=age,y=thalachh))+geom_point(aes(col=output))+labs(title = "age vs heart rate")
+
+
+##Analyzing categorical variables
+
+freq(heart_data_clean)
+freq(heart_data_clean$sex)
+freq(heart_data_clean$cp)
+
+##Analyzing numerical and categorical  variables
+
+describe(heart_data_clean)
+
+
+
+```
+
+
+```{r}
+##Model Building
+
+##splitting data into training and testing
+
+library(caTools)
+set.seed(0)
+splitt <- sample.split(heart_data_clean,SplitRatio = 0.7)
+train_set <-subset(heart_data,splitt==TRUE)
+test_set <- subset(heart_data,splitt==FALSE)
+
+```
+
+```{r}
+### DECISION TREE ALGORITHM
+
+library(tree)
+model_tree <- tree(formula = output~.,method='class',data = train_set)
+summary(model_tree)
+
+plot(model_tree)
+text(model_tree,pretty = 0)
+##predict
+
+predic_model_tree <- predict(model_tree,test_set,type = "class")
+predic_model_tree
+
+library(caret)
+confusionMatrix(predic_model_tree,test_set$output)
+
+
+
+
+
+```
+
+```{r}
+##PRUNING
+
+cv.model_tree <- cv.tree(model_tree,FUN = prune.misclass)
+cv.model_tree
+summary(cv.model_tree)
+
+plot(cv.model_tree$size,cv.model_tree$dev)
+cv.model_tree$size
+
+minimun <- which.min(cv.model_tree$dev)
+minimun
+points(cv.model_tree$size[minimun],cv.model_tree$dev[minimun],col="red",cex=2,pch=20,type ="b")
+
+
+model_prune <- prune.tree(model_tree,best = 7)
+predict_prune <- predict(model_prune,test_set,type = "class")
+summary(predict_prune)
+predict_prune
+
+confusionMatrix(predict_prune,test_set$output)
+
+plot(model_prune)
+text(model_prune,pretty = 0)
+
+
+
+```
+
+
+```{r}
+## SUPPORT VECTOR MACHINE
+library(e1071)
+
+tune.out=tune(svm , output~., data=train_set, kernel ="radial",  ranges=list(cost=c(0.1,1,10,100,1000), gamma=c(0.5,1,2,3,4)))
+tune.out
+summary(tune.out)
+
+svm_radial<- svm(output~.,data =train_set,kernel="radial",cost=10,gamma=0.5)
+svm_radial
+summary(svm_radial)
+
+predic_svm <- predict(svm_radial,test_set)
+predic_svm
+summary(predic_svm)
+
+confusionMatrix(predic_svm,test_set$output)
+
+
+
+```
+
+
+##The heart disease dataset contains 14 variables. From the 14 variables output variable is the response and all the other variables are the predictors. From the models tree based model given the better accuracy. After pruning, the tree size  is decreased and it has given more accuracy.78% accuracy we got from the pruned tree.
+
+
